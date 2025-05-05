@@ -1,6 +1,6 @@
 ## About
 
-`gopscan` is a simple command-line utility written in Go that allows you to scan for open TCP ports on a list of servers and IP address ranges.
+`gopscan` is a simple command-line utility written in Go that allows to scan for open TCP ports on a list of servers and list of ports.
 
 
 ## External Data
@@ -18,6 +18,10 @@
     * `-servers`: Path to the file containing the list of servers (default: `servers.csv`).
     * `-ranges`: Path to the file containing IP ranges (default: `ranges.csv`).
 
+## Requirements
+
+* Go version 1.18 or later (for `slog` package).
+
 ## Usage
 
 1.  **Build the utility:**
@@ -28,8 +32,7 @@
 
 2.  **Prepare input files:**
     * Create a `servers.txt` file (or the file specified by `-servers`) with one server per line.
-    * Create a `ports` directory (or the directory specified by `-portsdir`) containing one or more files with comma-separated port numbers.
-    * Create a `ranges.csv` file (or the file specified by `-ranges`) with IP address ranges in the format `start;stop`.
+    * Create a `ports` directory (or the directory specified by `-portsdir`) containing one or more files with comma-separated port numbers.    
 
 3.  **Run the utility:**
     ```bash
@@ -37,17 +40,13 @@
     ```
     You can also specify different input files and directories using the flags:
     ```bash
-    ./gopscan -servers my_servers.txt -portsdir my_port_lists -ranges ip_ranges.csv
+    ./gopscan -servers my_servers.txt -portsdir my_port_lists
     ```
 
 4.  **Check the output:**
     * The utility will print progress information to the console.
-    * Any open ports found will be logged in the `open_ports.log` file in the same directory where you run the tool.
-
-## Requirements
-
-* Go version 1.18 or later (for `slog` package).
+    * Any open ports found will be logged in the `open-ports.log` file in the same directory where you run the tool.
 
 ## License
 
-This project is open-source and available under the [MIT License](LICENSE) (you might want to add a LICENSE file if you intend to open-source it).
+[MIT](LICENSE)
