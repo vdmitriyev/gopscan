@@ -1,0 +1,27 @@
+version: '3'
+
+includes:
+    go: taskfiles/Taskfile_go.yml
+    git: taskfiles/Taskfile_git_tag.yml
+    
+tasks:
+
+  default:
+    desc: lists available tasks
+    silent: true
+    cmds:
+      - task --list-all
+  
+  cli-run:
+    desc: runs package
+    silent: true
+    cmds:
+      - go run .
+
+  cli-help:
+    desc: runs `--help` of the CLI
+    
+    silent: true
+    cmds:
+      - go run . --help
+      

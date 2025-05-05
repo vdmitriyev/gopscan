@@ -16,7 +16,6 @@
 * **Structured Logging:** Uses the `slog` package for structured logging of open ports to a dedicated file (`open_ports.log`). Each log entry includes the hostname/IP address and the open port number.
 * **Command-Line Flags:** Provides flags to customize the input files and directories:
     * `-servers`: Path to the file containing the list of servers (default: `servers.csv`).
-    * `-portsdir`: Path to the directory containing files with comma-separated ports (default: `ports`).
     * `-ranges`: Path to the file containing IP ranges (default: `ranges.csv`).
 
 ## Usage
