@@ -1,5 +1,6 @@
 # files
 servers.yaml
+gopscan
 
 # dirs
 ports/*

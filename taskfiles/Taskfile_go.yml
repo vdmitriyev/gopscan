@@ -8,9 +8,9 @@ vars:
   COMMITS_COUNTER:
     sh: git rev-list --all --count
   PACKAGE_BUILD: "{{.COMMIT_DATE}}_{{.COMMITS_COUNTER}}_{{.COMMIT_HASH}}"
-  CLI_FILE_NAME: gogitstats
+  CLI_FILE_NAME: gopscan
   EXE_FILE_NAME: "{{.CLI_FILE_NAME}}.exe"
-  RPI_FILE_NAME: "{{.CLI_FILE_NAME}}"
+  UNIX_FILE_NAME: "{{.CLI_FILE_NAME}}"
   
 tasks:
 
@@ -36,6 +36,8 @@ tasks:
     cmds:
       - go build -ldflags "-X main.build={{.PACKAGE_BUILD}}" -o {{.EXE_FILE_NAME}} .
       - file {{.EXE_FILE_NAME}}
+      - go build -ldflags "-X main.build={{.PACKAGE_BUILD}}" -o {{.UNIX_FILE_NAME}} .
+      - file {{.UNIX_FILE_NAME}}
   
   make-build:
     desc: makes a build for `win` platform
