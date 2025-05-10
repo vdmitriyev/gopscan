@@ -2,15 +2,18 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"flag"
 	"fmt"
 	"net"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
+	"text/template"
 	"time"
 
 	"go.uber.org/zap"
@@ -20,7 +23,14 @@ import (
 var version string = "0.1.0"
 var build string = "0.0.0" // do not remove or modify
 
+const appName = "gopscan"
 const logFileName = "gopscan.log"
+
+var globalPortMap = sync.Map{}
+
+type ScanResult struct {
+	Content string
+}
 
 func newLogger() (*zap.Logger, error) {
 	config := zap.NewProductionConfig()
@@ -57,6 +67,20 @@ func scanPort(ctx context.Context, wg *sync.WaitGroup, hostname string, port int
 	conn, err := dialer.DialContext(ctx, "tcp", address)
 	if err == nil {
 		logger.Info("OPEN PORT", zap.String("host", hostname), zap.Int("port", port))
+		// Update global map
+		if hostData, ok := globalPortMap.Load(hostname); ok {
+			if data, ok := hostData.(map[string]interface{}); ok {
+				if ports, ok := data["ports"].([]int); ok {
+					data["ports"] = append(ports, port)
+					globalPortMap.Store(hostname, data)
+				}
+			}
+		} else {
+			globalPortMap.Store(hostname, map[string]interface{}{
+				"server": hostname,
+				"ports":  []int{port},
+			})
+		}
 		conn.Close()
 	}
 }
@@ -148,6 +172,81 @@ func uniqueStrs(stringSlice []string) []string {
 	return list
 }
 
+func formatOpenPorts() string {
+	var buffer bytes.Buffer
+	serverPortMap := make(map[string][]int)
+
+	globalPortMap.Range(func(key, value interface{}) bool {
+		if data, ok := value.(map[string]interface{}); ok {
+			if server, ok := data["server"].(string); ok {
+				if ports, ok := data["ports"].([]int); ok {
+					serverPortMap[server] = append(serverPortMap[server], ports...)
+				}
+			}
+		}
+		return true
+	})
+
+	var sortedServers []string
+	for server := range serverPortMap {
+		sortedServers = append(sortedServers, server)
+	}
+	sort.Strings(sortedServers)
+
+	for _, server := range sortedServers {
+		ports := serverPortMap[server]
+		sort.Ints(ports)
+		buffer.WriteString(fmt.Sprintf("Server: %s\nOpen ports:\n", server))
+		for _, port := range ports {
+			buffer.WriteString(fmt.Sprintf(" - %d\n", port))
+		}
+		buffer.WriteString("\n")
+	}
+
+	return buffer.String()
+}
+
+func generateReport(data ScanResult) (string, error) {
+	tmpl := `Hi,
+
+please find below list of open ports.
+
+{{.Content}}
+
+Best regards,
+Auto-Admins
+`
+	t, err := template.New("report").Parse(tmpl)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse template: %w", err)
+	}
+
+	var tpl bytes.Buffer
+	err = t.Execute(&tpl, data)
+	if err != nil {
+		return "", fmt.Errorf("failed to execute template: %w", err)
+	}
+	return tpl.String(), nil
+}
+
+func sendReportByEmail(report string) {
+	err := SendEmail(fmt.Sprintf("%s: Open Ports Report", appName), report)
+	if err != nil {
+		zap.L().Error("Error while sending report by email", zap.Error(err))
+	}
+}
+
+func handleReport() {
+	reportContent := formatOpenPorts()
+	reportData := ScanResult{Content: reportContent}
+	report, err := generateReport(reportData)
+	if err != nil {
+		zap.L().Error("Error generating report", zap.Error(err))
+	} else {
+		sendReportByEmail(report)
+	}
+}
+
 func main() {
 	serversFile := flag.String("servers", "servers.txt", "Path to the file containing list of servers (one per line)")
 	portsDir := flag.String("portsdir", "ports", "Path to the directory containing files with comma-separated ports")
@@ -205,5 +304,7 @@ func main() {
 	wg.Wait()
 
 	zap.L().Info("Port scan completed")
-	fmt.Println("Port scan completed. Check", logFileName, "for open ports.")
+	handleReport()
+
+	fmt.Println("Port scan completed. Check for detailed logs: ", logFileName)
 }

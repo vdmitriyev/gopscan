@@ -1,11 +1,13 @@
 # dirs
 ports/*
 temp/*
+emails/*
 
-#
+# extentions
 *.txt
 *.csv
 *.log
+*.env
 
 # binaries
 gopscan*
