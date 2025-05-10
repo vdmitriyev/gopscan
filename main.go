@@ -72,7 +72,7 @@ func newLogger() (*zap.Logger, error) {
 func scanPort(ctx context.Context, wg *sync.WaitGroup, hostname string, port int, logger *zap.Logger) {
 	defer wg.Done()
 	address := fmt.Sprintf("%s:%d", hostname, port)
-	dialer := net.Dialer{Timeout: 1 * time.Second}
+	dialer := net.Dialer{Timeout: 15 * time.Second}
 	conn, err := dialer.DialContext(ctx, "tcp", address)
 	if err == nil {
 		logger.Info("OPEN PORT", zap.String("host", hostname), zap.Int("port", port))
@@ -319,6 +319,7 @@ func main() {
 
 	for serverName, allowedPorts := range serversWithPorts {
 		wg.Add(1)
+		zap.L().Info(fmt.Sprintf("Start scanning the server: %s", serverName))
 		// Skip scanning of allowed ports
 		go processServer(ctx, &wg, serverName, allowedPorts, portsToScan, zap.L())
 	}
