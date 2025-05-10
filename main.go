@@ -254,17 +254,21 @@ func sendReportByEmail(report string) {
 	if err != nil {
 		zap.L().Error("Error while sending report by email", zap.Error(err))
 	}
-	//fmt.Println("Report:\n", report) // Placeholder for email sending
+	fmt.Println("Report:\n", report) // Placeholder for email sending
 }
 
 func handleReport() {
 	reportContent := formatOpenPorts()
-	reportData := ScanResult{Content: reportContent}
-	report, err := generateReport(reportData)
-	if err != nil {
-		zap.L().Error("Error generating report", zap.Error(err))
+	if len(reportContent) != 0 {
+		reportData := ScanResult{Content: reportContent}
+		report, err := generateReport(reportData)
+		if err != nil {
+			zap.L().Error("Error generating report", zap.Error(err))
+		} else {
+			sendReportByEmail(report)
+		}
 	} else {
-		sendReportByEmail(report)
+		zap.L().Info("Report will not be send. No open ports that are not allowed. Nothing to report here.")
 	}
 }
 
