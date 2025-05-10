@@ -5,7 +5,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"log/slog"
 	"net"
 	"os"
 	"path/filepath"
@@ -13,25 +12,56 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 var version string = "0.1.0"
 var build string = "0.0.0" // do not remove or modify
 
-const logFileName = "open-ports.log"
+const logFileName = "gopscan.log"
 
-func scanPort(ctx context.Context, wg *sync.WaitGroup, hostname string, port int, logger *slog.Logger) {
+func newLogger() (*zap.Logger, error) {
+	config := zap.NewProductionConfig()
+	config.OutputPaths = []string{"stdout", logFileName}
+	config.EncoderConfig = zapcore.EncoderConfig{
+		MessageKey:    "msg",
+		LevelKey:      "level",
+		TimeKey:       "ts",
+		NameKey:       "logger",
+		CallerKey:     "caller",
+		FunctionKey:   zapcore.OmitKey,
+		StacktraceKey: "stacktrace",
+		LineEnding:    zapcore.DefaultLineEnding,
+		EncodeLevel:   zapcore.LowercaseLevelEncoder,
+		EncodeTime:    zapcore.ISO8601TimeEncoder,
+		//EncodeTime: func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
+		//	enc.AppendString(t.UTC().Format("2006-01-02 15:04:05"))
+		//},
+		EncodeDuration: zapcore.StringDurationEncoder,
+		EncodeCaller:   zapcore.ShortCallerEncoder,
+	}
+	config.Encoding = "console" // Change to "console" for line format
+	logger, err := config.Build()
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize zap logger: %w", err)
+	}
+	return logger, nil
+}
+
+func scanPort(ctx context.Context, wg *sync.WaitGroup, hostname string, port int, logger *zap.Logger) {
 	defer wg.Done()
 	address := fmt.Sprintf("%s:%d", hostname, port)
 	dialer := net.Dialer{Timeout: 1 * time.Second}
 	conn, err := dialer.DialContext(ctx, "tcp", address)
 	if err == nil {
-		logger.Info("OPEN PORT", "host", hostname, "port", port)
+		logger.Info("OPEN PORT", zap.String("host", hostname), zap.Int("port", port))
 		conn.Close()
 	}
 }
 
-func processServer(ctx context.Context, wg *sync.WaitGroup, hostname string, ports []int, logger *slog.Logger) {
+func processServer(ctx context.Context, wg *sync.WaitGroup, hostname string, ports []int, logger *zap.Logger) {
 	defer wg.Done()
 	var innerWg sync.WaitGroup
 	for _, port := range ports {
@@ -79,7 +109,7 @@ func readPortsFromFiles(dirPath string) ([]int, error) {
 			for _, pStr := range portsStr {
 				port, err := strconv.Atoi(strings.TrimSpace(pStr))
 				if err != nil {
-					slog.Warn("Invalid port format in file", "file", path, "value", pStr)
+					zap.L().Warn("Invalid port format in file", zap.String("file", path), zap.String("value", pStr))
 					continue
 				}
 				allPorts = append(allPorts, port)
@@ -91,7 +121,6 @@ func readPortsFromFiles(dirPath string) ([]int, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to process port files: %w", err)
 	}
-	//fmt.Println(allPorts)
 	return uniqueInts(allPorts), nil
 }
 
@@ -120,10 +149,8 @@ func uniqueStrs(stringSlice []string) []string {
 }
 
 func main() {
-
 	serversFile := flag.String("servers", "servers.txt", "Path to the file containing list of servers (one per line)")
 	portsDir := flag.String("portsdir", "ports", "Path to the directory containing files with comma-separated ports")
-	//rangesFile := flag.String("ranges", "ranges.txt", "Path to the file containing IP ranges (start;stop)")
 	versionFull := flag.Bool("version", false, "Prints full version of CLI")
 	versionShort := flag.Bool("version-short", false, "Prints version of CLI")
 	flag.Parse()
@@ -139,34 +166,32 @@ func main() {
 		return
 	}
 
-	logFile, err := os.OpenFile(logFileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	logger, err := newLogger()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error opening log file: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error initializing logger: %v\n", err)
 		os.Exit(1)
 	}
-	defer logFile.Close()
-
-	logger := slog.New(slog.NewTextHandler(logFile, &slog.HandlerOptions{Level: slog.LevelInfo}))
-	slog.SetDefault(logger)
+	defer logger.Sync()
+	zap.ReplaceGlobals(logger)
 
 	servers, err := readServersFromFile(*serversFile)
 	if err != nil {
-		slog.Error("Error reading servers file", "error", err)
+		zap.L().Error("Error reading servers file", zap.Error(err))
 		os.Exit(1)
 	}
-	slog.Info("Read servers from file", "count", len(servers), "file", *serversFile)
+	zap.L().Info("Read servers from file", zap.Int("count", len(servers)), zap.String("file", *serversFile))
 
 	ports, err := readPortsFromFiles(*portsDir)
 	if err != nil {
-		slog.Error("Error reading ports from directory", "error", err)
+		zap.L().Error("Error reading ports from directory", zap.Error(err))
 		os.Exit(1)
 	}
-	slog.Info("Read ports from directory", "count", len(ports), "directory", *portsDir)
+	zap.L().Info("Read ports from directory", zap.Int("count", len(ports)), zap.String("directory", *portsDir))
 
 	var allHosts []string
 	allHosts = append(allHosts, servers...)
 	uniqueHosts := uniqueStrs(allHosts)
-	slog.Info("Total unique hosts to scan", "count", len(uniqueHosts))
+	zap.L().Info("Total unique hosts to scan", zap.Int("count", len(uniqueHosts)))
 
 	var wg sync.WaitGroup
 	ctx, cancel := context.WithCancel(context.Background())
@@ -174,11 +199,11 @@ func main() {
 
 	for _, host := range uniqueHosts {
 		wg.Add(1)
-		go processServer(ctx, &wg, host, ports, logger)
+		go processServer(ctx, &wg, host, ports, zap.L())
 	}
 
 	wg.Wait()
 
-	slog.Info("Port scan completed")
+	zap.L().Info("Port scan completed")
 	fmt.Println("Port scan completed. Check", logFileName, "for open ports.")
 }
