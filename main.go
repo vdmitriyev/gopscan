@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"flag"
@@ -18,9 +17,10 @@ import (
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"gopkg.in/yaml.v3"
 )
 
-var version string = "0.1.0"
+var version string = "0.1.1"
 var build string = "0.0.0" // do not remove or modify
 
 const appName = "gopscan"
@@ -30,6 +30,15 @@ var globalPortMap = sync.Map{}
 
 type ScanResult struct {
 	Content string
+}
+
+type ServerConfig struct {
+	Name         string `yaml:"name"`
+	AllowedPorts []int  `yaml:"allowedPorts"`
+}
+
+type ServersConfig struct {
+	Servers []ServerConfig `yaml:"servers"`
 }
 
 func newLogger() (*zap.Logger, error) {
@@ -47,7 +56,7 @@ func newLogger() (*zap.Logger, error) {
 		EncodeLevel:   zapcore.LowercaseLevelEncoder,
 		EncodeTime:    zapcore.ISO8601TimeEncoder,
 		//EncodeTime: func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
-		//	enc.AppendString(t.UTC().Format("2006-01-02 15:04:05"))
+		// 	enc.AppendString(t.UTC().Format("2006-01-02 15:04:05"))
 		//},
 		EncodeDuration: zapcore.StringDurationEncoder,
 		EncodeCaller:   zapcore.ShortCallerEncoder,
@@ -85,37 +94,48 @@ func scanPort(ctx context.Context, wg *sync.WaitGroup, hostname string, port int
 	}
 }
 
-func processServer(ctx context.Context, wg *sync.WaitGroup, hostname string, ports []int, logger *zap.Logger) {
+func processServer(ctx context.Context, wg *sync.WaitGroup, serverName string, allowedPorts []int, portsToScan []int, logger *zap.Logger) {
 	defer wg.Done()
+
+	// Create a map for faster lookups of allowed ports
+	allowedPortMap := make(map[int]bool)
+	for _, port := range allowedPorts {
+		allowedPortMap[port] = true
+	}
+
+	var filteredPortsToScan []int
+	for _, port := range portsToScan {
+		if !allowedPortMap[port] {
+			filteredPortsToScan = append(filteredPortsToScan, port)
+		}
+	}
+
 	var innerWg sync.WaitGroup
-	for _, port := range ports {
+	for _, port := range filteredPortsToScan {
 		innerWg.Add(1)
-		go scanPort(ctx, &innerWg, hostname, port, logger)
+		go scanPort(ctx, &innerWg, serverName, port, logger)
 	}
 	innerWg.Wait()
 }
 
-func readServersFromFile(filePath string) ([]string, error) {
-	file, err := os.Open(filePath)
+func readServersFromFile(filePath string) (map[string][]int, error) {
+	content, err := os.ReadFile(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open servers file: %w", err)
-	}
-	defer file.Close()
-
-	var servers []string
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		server := strings.TrimSpace(scanner.Text())
-		if server != "" {
-			servers = append(servers, server)
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
 		return nil, fmt.Errorf("failed to read servers file: %w", err)
 	}
 
-	return servers, nil
+	var config ServersConfig
+	err = yaml.Unmarshal(content, &config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal YAML: %w", err)
+	}
+
+	serversWithPorts := make(map[string][]int)
+	for _, server := range config.Servers {
+		serversWithPorts[server.Name] = server.AllowedPorts
+	}
+
+	return serversWithPorts, nil
 }
 
 func readPortsFromFiles(dirPath string) ([]int, error) {
@@ -234,6 +254,7 @@ func sendReportByEmail(report string) {
 	if err != nil {
 		zap.L().Error("Error while sending report by email", zap.Error(err))
 	}
+	//fmt.Println("Report:\n", report) // Placeholder for email sending
 }
 
 func handleReport() {
@@ -248,7 +269,8 @@ func handleReport() {
 }
 
 func main() {
-	serversFile := flag.String("servers", "servers.txt", "Path to the file containing list of servers (one per line)")
+
+	serversFile := flag.String("servers", "servers.yaml", "Path to the YAML file containing list of servers and allowed ports")
 	portsDir := flag.String("portsdir", "ports", "Path to the directory containing files with comma-separated ports")
 	versionFull := flag.Bool("version", false, "Prints full version of CLI")
 	versionShort := flag.Bool("version-short", false, "Prints version of CLI")
@@ -273,32 +295,28 @@ func main() {
 	defer logger.Sync()
 	zap.ReplaceGlobals(logger)
 
-	servers, err := readServersFromFile(*serversFile)
+	serversWithPorts, err := readServersFromFile(*serversFile)
 	if err != nil {
 		zap.L().Error("Error reading servers file", zap.Error(err))
 		os.Exit(1)
 	}
-	zap.L().Info("Read servers from file", zap.Int("count", len(servers)), zap.String("file", *serversFile))
+	zap.L().Info("Read servers from file", zap.Int("count", len(serversWithPorts)), zap.String("file", *serversFile))
 
-	ports, err := readPortsFromFiles(*portsDir)
+	portsToScan, err := readPortsFromFiles(*portsDir)
 	if err != nil {
 		zap.L().Error("Error reading ports from directory", zap.Error(err))
 		os.Exit(1)
 	}
-	zap.L().Info("Read ports from directory", zap.Int("count", len(ports)), zap.String("directory", *portsDir))
-
-	var allHosts []string
-	allHosts = append(allHosts, servers...)
-	uniqueHosts := uniqueStrs(allHosts)
-	zap.L().Info("Total unique hosts to scan", zap.Int("count", len(uniqueHosts)))
+	zap.L().Info("Read ports from directory", zap.Int("count", len(portsToScan)), zap.String("directory", *portsDir))
 
 	var wg sync.WaitGroup
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	for _, host := range uniqueHosts {
+	for serverName, allowedPorts := range serversWithPorts {
 		wg.Add(1)
-		go processServer(ctx, &wg, host, ports, zap.L())
+		// Skip scanning of allowed ports
+		go processServer(ctx, &wg, serverName, allowedPorts, portsToScan, zap.L())
 	}
 
 	wg.Wait()

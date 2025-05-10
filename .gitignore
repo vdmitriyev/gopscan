@@ -1,3 +1,6 @@
+# files
+servers.yaml
+
 # dirs
 ports/*
 temp/*
