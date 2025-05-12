@@ -4,15 +4,15 @@
 
 ## Key Features
 
-* **Server List from File:** 
+* **Servers:** 
     + Reads a list of target servers (hostnames or IP addresses) from a specified YAML file
-* **Ports from Multiple Files:** 
+* **Ports from multiple files:** 
     + Reads port numbers to scan from one or more files within a specified directory. Each file should contain a comma-separated list of ports.
-* **Concurrent Scanning:** 
+* **Concurrent scanning:** 
     - Should utilizes Go's concurrency features (goroutines) to scan multiple ports on multiple servers simultaneously, making the process efficient.
-* **Structured Logging:** 
+* **Logging:** 
     - Uses the `zap` package for structured logging of open ports to a dedicated file. Each log entry includes the hostname/IP address and the open port number.
-* **Report:** 
+* **Reporting:** 
     - Generates reports and sends them by email.
 
 ## Usage
