@@ -39,20 +39,26 @@ func createDirectory(dirPath string) {
 	}
 }
 
-func ReadConfigs() {
+func ReadConfigs() error {
 
 	err := godotenv.Load()
 	if err != nil {
-		log.Fatal("Error loading .env file")
+		return fmt.Errorf("Error loading .env file")
 	}
 
 	if err := cleanenv.ReadEnv(&ConfigEmail); err != nil {
-		log.Println("was not able to read env")
+		return fmt.Errorf("Error with reading an .env")
 	}
+	return nil
 }
 
 func SendEmail(subject, content string) error {
-	ReadConfigs()
+
+	err := ReadConfigs()
+	if err != nil {
+		return err
+	}
+
 	toEmail := ConfigEmail.EmailAdminNotifier
 	readonly := ConfigEmail.EmailReadonlyMode
 	m := mail.NewMsg()
@@ -88,6 +94,7 @@ func SendEmail(subject, content string) error {
 
 		return saveEmailToFile(m, toEmail)
 	} else {
+		fmt.Println("EmailReadonlyMode is ON. No emails will be sent.")
 		return saveEmailToFile(m, toEmail)
 	}
 }
@@ -97,10 +104,8 @@ func saveEmailToFile(m *mail.Msg, toEmail string) error {
 	newUUID7, _ := uuid.NewV7()
 	fileName := fmt.Sprintf("%s_report_%s.txt", newUUID7.String(), toEmail)
 	filePath := filepath.Join(DirEmailOutbox, fileName)
-
 	if err := m.WriteToFile(filePath); err != nil {
 		return fmt.Errorf("failed to save mail to file: %s, %s", filePath, err)
 	}
-
 	return nil
 }

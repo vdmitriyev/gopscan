@@ -2,11 +2,6 @@
 
 `gopscan` is a simple command-line utility written in Go that allows to scan for open TCP ports on a list of servers and list of ports.
 
-
-## External Data
-
-* https://github.com/HeckerBirb/top-nmap-ports-csv
-
 ## Key Features
 
 * **Server List from File:** Reads a list of target servers (hostnames or IP addresses) from a specified text file, one server per line.
@@ -24,16 +19,17 @@
 
 ## Usage
 
-1. Create file: `servers.yaml` 
+
+1.  **Prepare input files:**
+    * Create a `servers.yaml` file (or the file specified by `-servers`). See example of the file below.
+    * Create a `ports` directory (or the directory specified by `-portsdir`) containing one or more files with comma-separated port numbers.    
+
+
 1.  **Build the utility:**
     ```bash
     go build main.go
     ```
     This will create an executable file (e.g., `gopscan` on Linux/macOS, `gopscan.exe` on Windows).
-
-1.  **Prepare input files:**
-    * Create a `servers.txt` file (or the file specified by `-servers`) with one server per line.
-    * Create a `ports` directory (or the directory specified by `-portsdir`) containing one or more files with comma-separated port numbers.    
 
 1.  **Run the utility:**
     ```bash
@@ -41,17 +37,21 @@
     ```
     You can also specify different input files and directories using the flags:
     ```bash
-    ./gopscan -servers my_servers.txt -portsdir my_port_lists
+    ./gopscan -servers servers.yaml -portsdir port
     ```
 
 1.  **Check the output:**
     * The utility will print progress information to the console.
-    * Any open ports found will be logged in the `open-ports.log` file in the same directory where you run the tool.
+    * Any open ports found will be logged in the `gopscan.log` file in the same directory where you run the tool.
+
+1. **Sending emails:**
+    * There is a possibility to send reports of open ports as an email.
+    * Create a `.env` file with email settings. See example of the file below.
 
 
-## `servers.yaml` Example:
+## Format Example: `servers.yaml` 
 
-Here is a example of `servers.yaml` file
+An example of `servers.yaml` file
 
 ```yaml
 servers:
@@ -65,6 +65,26 @@ servers:
       - 5432
       - 3306
 ```
+
+## Format Example: `.env` 
+
+An example of `.env` file
+
+```text
+EMAIL_SERVER = '<CHANGE-ME>'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_USERNAME = '<CHANGE-ME>'
+EMAIL_PASSWORD = '<CHANGE-ME>'
+EMAIL_SENDER = '<CHANGE-ME>'
+EMAIL_ADMIN_NOTIFIER = '<CHANGE-ME>'
+EMAIL_READONLY_MODE = True
+```
+
+## Data
+
+* Collection of ports as a files:
+    - https://github.com/HeckerBirb/top-nmap-ports-csv
 
 ## License
 

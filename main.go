@@ -75,7 +75,7 @@ func scanPort(ctx context.Context, wg *sync.WaitGroup, hostname string, port int
 	dialer := net.Dialer{Timeout: 15 * time.Second}
 	conn, err := dialer.DialContext(ctx, "tcp", address)
 	if err == nil {
-		logger.Info("OPEN PORT", zap.String("host", hostname), zap.Int("port", port))
+		logger.Info("OPEN PORT FOUND", zap.String("host", hostname), zap.Int("port", port))
 		// Update global map
 		if hostData, ok := globalPortMap.Load(hostname); ok {
 			if data, ok := hostData.(map[string]interface{}); ok {
@@ -233,8 +233,10 @@ please find below list of open ports.
 
 {{.Content}}
 
-Best regards,
-Auto-Admins
+This notification has been generated automatically.
+
+Your port scanner,
+gopscan
 `
 	t, err := template.New("report").Parse(tmpl)
 	if err != nil {
@@ -254,7 +256,8 @@ func sendReportByEmail(report string) {
 	if err != nil {
 		zap.L().Error("Error while sending report by email", zap.Error(err))
 	}
-	fmt.Println("Report:\n", report) // Placeholder for email sending
+	// Placeholder for email sending
+	//zap.L().Info(report)
 }
 
 func handleReport() {
@@ -266,9 +269,10 @@ func handleReport() {
 			zap.L().Error("Error generating report", zap.Error(err))
 		} else {
 			sendReportByEmail(report)
+			zap.L().Info("Email with an report has been sent")
 		}
 	} else {
-		zap.L().Info("Report will not be send. No open ports that are not allowed. Nothing to report here.")
+		zap.L().Info("Report will not be send. No open ports that are not allowed. Nothing to report here")
 	}
 }
 
