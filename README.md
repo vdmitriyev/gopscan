@@ -4,14 +4,16 @@
 
 ## Key Features
 
-* **Server List from File:** Reads a list of target servers (hostnames or IP addresses) from a specified text file, one server per line.
-* **Ports from Multiple Files:** Reads port numbers to scan from one or more files within a specified directory. Each file should contain a comma-separated list of ports.
-* **IP Address Range Scanning:** Reads IP address ranges from a CSV file (format: `start;stop`) and expands them into individual IP addresses for scanning.
-* **Concurrent Scanning:** Utilizes Go's concurrency features (goroutines) to scan multiple ports on multiple servers simultaneously, making the process efficient.
-* **Structured Logging:** Uses the `slog` package for structured logging of open ports to a dedicated file (`open_ports.log`). Each log entry includes the hostname/IP address and the open port number.
-* **Command-Line Flags:** Provides flags to customize the input files and directories:
-    * `-servers`: Path to the file containing the list of servers (default: `servers.csv`).
-    * `-ranges`: Path to the file containing IP ranges (default: `ranges.csv`).
+* **Server List from File:** 
+    + Reads a list of target servers (hostnames or IP addresses) from a specified YAML file
+* **Ports from Multiple Files:** 
+    + Reads port numbers to scan from one or more files within a specified directory. Each file should contain a comma-separated list of ports.
+* **Concurrent Scanning:** 
+    - Should utilizes Go's concurrency features (goroutines) to scan multiple ports on multiple servers simultaneously, making the process efficient.
+* **Structured Logging:** 
+    - Uses the `zap` package for structured logging of open ports to a dedicated file. Each log entry includes the hostname/IP address and the open port number.
+* **Report:** 
+    - Generates reports and sends them by email.
 
 ## Requirements
 
