@@ -1,0 +1,44 @@
+name: go: build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # Important for git describe --tags
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '^1.24'    
+    
+      - name: Set Variables
+        id: vars
+        run: |
+          COMMIT_DATE=$(git log -1 --format=%ad --date=short)
+          COMMIT_HASH=$(git log -1 --format="%h")
+          COMMITS_COUNTER=$(git rev-list --all --count)
+          PACKAGE_BUILD="${COMMIT_DATE}_${COMMITS_COUNTER}_${COMMIT_HASH}"
+          echo "COMMIT_DATE=$COMMIT_DATE" >> $GITHUB_OUTPUT
+          echo "COMMIT_HASH=$COMMIT_HASH" >> $GITHUB_OUTPUT
+          echo "COMMITS_COUNTER=$COMMITS_COUNTER" >> $GITHUB_OUTPUT
+          echo "PACKAGE_BUILD=$PACKAGE_BUILD" >> $GITHUB_OUTPUT
+          echo "CLI_FILE_NAME=gogitstats" >> $GITHUB_OUTPUT
+          echo "EXE_FILE_NAME=gogitstats.exe" >> $GITHUB_OUTPUT
+
+      - name: Build
+        run: |
+          go build -ldflags "-X main.build=${{ steps.vars.outputs.PACKAGE_BUILD }}" -o ${{ steps.vars.outputs.EXE_FILE_NAME }} .
+          go build -ldflags "-X main.build=${{ steps.vars.outputs.PACKAGE_BUILD }}" -o ${{ steps.vars.outputs.CLI_FILE_NAME }} .
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: gogitstats
+          generate_release_notes: true
