@@ -15,10 +15,6 @@
 * **Report:** 
     - Generates reports and sends them by email.
 
-## Requirements
-
-* Go version 1.18 or later (for `slog` package).
-
 ## Usage
 
 
