@@ -1,5 +1,7 @@
 # files
 servers.yaml
+servers*.yaml
+*servers.yaml
 gopscan
 
 # dirs

@@ -20,11 +20,12 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var version string = "0.1.2"
+var version string = "0.1.3"
 var build string = "0.0.0" // do not remove or modify
 
 const appName = "gopscan"
 const logFileName = "gopscan.log"
+const MAX_CONCURRENT_PORTS = 5000
 
 var globalPortMap = sync.Map{}
 
@@ -69,11 +70,22 @@ func newLogger() (*zap.Logger, error) {
 	return logger, nil
 }
 
-func scanPort(ctx context.Context, wg *sync.WaitGroup, hostname string, port int, logger *zap.Logger) {
+func scanPort(ctx context.Context, sem chan struct{}, wg *sync.WaitGroup, hostname string, port int, logger *zap.Logger) {
 	defer wg.Done()
+
+	sem <- struct{}{} // Acquire a semaphore slot
+	defer func() {
+		<-sem // Release the semaphore slot
+	}()
+
 	address := fmt.Sprintf("%s:%d", hostname, port)
-	dialer := net.Dialer{Timeout: 15 * time.Second}
+	dialer := net.Dialer{Timeout: 10 * time.Second}
 	conn, err := dialer.DialContext(ctx, "tcp", address)
+
+	// if err != nil {
+	// 	log.Println(err)
+	// }
+
 	if err == nil {
 		logger.Info("OPEN PORT FOUND", zap.String("host", hostname), zap.Int("port", port))
 		// Update global map
@@ -111,11 +123,14 @@ func processServer(ctx context.Context, wg *sync.WaitGroup, serverName string, a
 	}
 
 	var innerWg sync.WaitGroup
+	semaphore := make(chan struct{}, MAX_CONCURRENT_PORTS)
+
 	for _, port := range filteredPortsToScan {
 		innerWg.Add(1)
-		go scanPort(ctx, &innerWg, serverName, port, logger)
+		go scanPort(ctx, semaphore, &innerWg, serverName, port, logger)
 	}
 	innerWg.Wait()
+	close(semaphore)
 }
 
 func readServersFromFile(filePath string) (map[string][]int, error) {
