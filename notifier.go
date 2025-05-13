@@ -74,6 +74,10 @@ func SendEmail(subject, content string) error {
 	m.SetBodyString(mail.TypeTextPlain, content)
 
 	if !readonly {
+		err := saveEmailToFile(m, toEmail)
+		if err != nil {
+			return err
+		}
 
 		newEmail, err := mail.NewClient(
 			ConfigEmail.EmailServer,
@@ -91,8 +95,7 @@ func SendEmail(subject, content string) error {
 		if err := newEmail.DialAndSend(m); err != nil {
 			return fmt.Errorf("failed to send mail: %s", err)
 		}
-
-		return saveEmailToFile(m, toEmail)
+		return nil
 	} else {
 		fmt.Println("EmailReadonlyMode is ON. No emails will be sent.")
 		return saveEmailToFile(m, toEmail)

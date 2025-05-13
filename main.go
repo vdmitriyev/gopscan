@@ -5,6 +5,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"path/filepath"
@@ -79,12 +80,12 @@ func scanPort(ctx context.Context, sem chan struct{}, wg *sync.WaitGroup, hostna
 	}()
 
 	address := fmt.Sprintf("%s:%d", hostname, port)
-	dialer := net.Dialer{Timeout: 10 * time.Second}
+	dialer := net.Dialer{Timeout: 15 * time.Second}
 	conn, err := dialer.DialContext(ctx, "tcp", address)
 
-	// if err != nil {
-	// 	log.Println(err)
-	// }
+	if err != nil {
+		log.Println(err)
+	}
 
 	if err == nil {
 		logger.Info("OPEN PORT FOUND", zap.String("host", hostname), zap.Int("port", port))
