@@ -26,7 +26,8 @@ var build string = "0.0.0" // do not remove or modify
 
 const appName = "gopscan"
 const logFileName = "gopscan.log"
-const MAX_CONCURRENT_PORTS = 5000
+const MAX_CONCURRENT_PORTS = 107
+const PORT_CONNECT_TIMEOUT = 15
 
 var globalPortMap = sync.Map{}
 
@@ -80,7 +81,7 @@ func scanPort(ctx context.Context, sem chan struct{}, wg *sync.WaitGroup, hostna
 	}()
 
 	address := fmt.Sprintf("%s:%d", hostname, port)
-	dialer := net.Dialer{Timeout: 15 * time.Second}
+	dialer := net.Dialer{Timeout: PORT_CONNECT_TIMEOUT * time.Second}
 	conn, err := dialer.DialContext(ctx, "tcp", address)
 
 	if err != nil {
