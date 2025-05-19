@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"text/template"
 	"time"
 
@@ -21,15 +22,20 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var version string = "0.1.4"
+var version string = "0.1.5"
 var build string = "0.0.0" // do not remove or modify
 
 const appName = "gopscan"
 const logFileName = "gopscan.log"
-const MAX_CONCURRENT_PORTS = 107
-const PORT_CONNECT_TIMEOUT = 15
+
+const MAX_CONCURRENT_PORTS = 1823
+
+// const MAX_CONCURRENT_PORTS = 107
+// const MAX_CONCURRENT_PORTS = 17
+const PORT_CONNECT_TIMEOUT = 5
 
 var globalPortMap = sync.Map{}
+var globalCounterPortScans atomic.Uint64
 
 type ScanResult struct {
 	Content string
@@ -77,6 +83,7 @@ func scanPort(ctx context.Context, sem chan struct{}, wg *sync.WaitGroup, hostna
 
 	sem <- struct{}{} // Acquire a semaphore slot
 	defer func() {
+		globalCounterPortScans.Add(1)
 		<-sem // Release the semaphore slot
 	}()
 
@@ -84,9 +91,9 @@ func scanPort(ctx context.Context, sem chan struct{}, wg *sync.WaitGroup, hostna
 	dialer := net.Dialer{Timeout: PORT_CONNECT_TIMEOUT * time.Second}
 	conn, err := dialer.DialContext(ctx, "tcp", address)
 
-	if err != nil {
-		log.Println(err)
-	}
+	// if err != nil {
+	// 	log.Println(err)
+	// }
 
 	if err == nil {
 		logger.Info("OPEN PORT FOUND", zap.String("host", hostname), zap.Int("port", port))
@@ -131,6 +138,7 @@ func processServer(ctx context.Context, wg *sync.WaitGroup, serverName string, a
 		innerWg.Add(1)
 		go scanPort(ctx, semaphore, &innerWg, serverName, port, logger)
 	}
+
 	innerWg.Wait()
 	close(semaphore)
 }
@@ -293,10 +301,49 @@ func handleReport() {
 	}
 }
 
+func formatSecondsRelative(totalSeconds int) string {
+	duration := time.Duration(totalSeconds) * time.Second
+
+	days := int(duration.Hours() / 24)
+	hours := int(duration.Hours()) % 24
+	minutes := int(duration.Minutes()) % 60
+	seconds := int(duration.Seconds()) % 60
+
+	formatTwoDigits := func(n int) string {
+		if n < 10 {
+			return fmt.Sprintf("0%d", n)
+		}
+		return fmt.Sprintf("%d", n)
+	}
+
+	switch {
+	case days > 0:
+		return fmt.Sprintf("%d days %s:%s:%s", days, formatTwoDigits(hours), formatTwoDigits(minutes), formatTwoDigits(seconds))
+	case hours > 0:
+		return fmt.Sprintf("%s:%s:%s", formatTwoDigits(hours), formatTwoDigits(minutes), formatTwoDigits(seconds))
+	case minutes > 0:
+		return fmt.Sprintf("00:%s:%s", formatTwoDigits(minutes), formatTwoDigits(seconds))
+	case seconds >= 0:
+		return fmt.Sprintf("00:00:%s s", formatTwoDigits(seconds))
+	default:
+		return "00 s"
+	}
+}
+
+func printTimeEstimatePortScan(counterServers int, counterPorts int) {
+	totalSeconds := (counterServers * counterPorts * PORT_CONNECT_TIMEOUT) / MAX_CONCURRENT_PORTS
+	zap.L().Info(fmt.Sprintf("Time estimate for ports scan: %s", formatSecondsRelative(totalSeconds)))
+}
+
+func printPortScanStatus() {
+	log.Println(fmt.Sprintf("Currently scanned ports: %d", globalCounterPortScans.Load()))
+}
+
 func main() {
 
 	serversFile := flag.String("servers", "servers.yaml", "Path to the YAML file containing list of servers and allowed ports")
-	portsDir := flag.String("portsdir", "ports", "Path to the directory containing files with comma-separated ports")
+	portsDirectory := flag.String("directory", "ports", "Path to the directory containing files with comma-separated ports")
+	timeEstimate := flag.Bool("estimate", false, "Prints time estimate for ports scan")
 	versionFull := flag.Bool("version", false, "Prints full version of CLI")
 	versionShort := flag.Bool("version-short", false, "Prints version of CLI")
 	flag.Parse()
@@ -327,12 +374,35 @@ func main() {
 	}
 	zap.L().Info("Read servers from file", zap.Int("count", len(serversWithPorts)), zap.String("file", *serversFile))
 
-	portsToScan, err := readPortsFromFiles(*portsDir)
+	portsToScan, err := readPortsFromFiles(*portsDirectory)
 	if err != nil {
 		zap.L().Error("Error reading ports from directory", zap.Error(err))
 		os.Exit(1)
 	}
-	zap.L().Info("Read ports from directory", zap.Int("count", len(portsToScan)), zap.String("directory", *portsDir))
+	zap.L().Info("Read ports from directory", zap.Int("count", len(portsToScan)), zap.String("directory", *portsDirectory))
+
+	if *timeEstimate {
+		printTimeEstimatePortScan(len(serversWithPorts), len(portsToScan))
+		return
+	}
+
+	printTimeEstimatePortScan(len(serversWithPorts), len(portsToScan))
+
+	intervalPrint := 5 * time.Second
+	tickerPrint := time.NewTicker(intervalPrint)
+	defer tickerPrint.Stop()
+	donePrint := make(chan bool)
+
+	go func() {
+		for {
+			select {
+			case <-tickerPrint.C:
+				printPortScanStatus()
+			case <-donePrint:
+				return
+			}
+		}
+	}()
 
 	var wg sync.WaitGroup
 	ctx, cancel := context.WithCancel(context.Background())
@@ -341,11 +411,11 @@ func main() {
 	for serverName, allowedPorts := range serversWithPorts {
 		wg.Add(1)
 		zap.L().Info(fmt.Sprintf("Start scanning the server: %s", serverName))
-		// Skip scanning of allowed ports
 		go processServer(ctx, &wg, serverName, allowedPorts, portsToScan, zap.L())
 	}
 
 	wg.Wait()
+	close(donePrint)
 
 	zap.L().Info("Port scan completed")
 	handleReport()

@@ -20,7 +20,7 @@
 
 1.  **Prepare input files:**
     * Create a `servers.yaml` file (or the file specified by `-servers`). See example of the file below.
-    * Create a `ports` directory (or the directory specified by `-portsdir`) containing one or more files with comma-separated port numbers.    
+    * Create a `ports` directory (or the directory specified by `-directory`) containing one or more files with comma-separated port numbers.    
 
 
 1.  **Build the utility:**
@@ -35,7 +35,7 @@
     ```
     You can also specify different input files and directories using the flags:
     ```bash
-    ./gopscan -servers servers.yaml -portsdir port
+    ./gopscan -servers servers.yaml -directory port
     ```
 
 1.  **Check the output:**
