@@ -1,13 +1,13 @@
 ## About
 
-`gopscan` is a simple command-line utility written in Go that allows to scan for open TCP ports on a list of servers and list of ports.
+`gopscan` is a command-line utility to scan for open TCP ports on a list of servers and list of ports. The utility has been implemented in Go.
 
 ## Key Features
 
 * **Servers:** 
-    + Reads a list of target servers (hostnames or IP addresses) from a specified YAML file
+    + Reads a list of target servers (hostnames or IP addresses) from a specified YAML file.
 * **Ports from multiple files:** 
-    + Reads port numbers to scan from one or more files within a specified directory. Each file should contain a comma-separated list of ports.
+    + Reads ports from multiple files within a specified directory. Each file should contain a comma-separated list of ports.
 * **Concurrent scanning:** 
     - Should utilizes Go's concurrency features (goroutines) to scan multiple ports on multiple servers simultaneously, making the process efficient.
 * **Logging:** 
@@ -22,7 +22,6 @@
     * Create a `servers.yaml` file (or the file specified by `-servers`). See example of the file below.
     * Create a `ports` directory (or the directory specified by `-directory`) containing one or more files with comma-separated port numbers.    
 
-
 1.  **Build the utility:**
     ```bash
     go build main.go
@@ -35,7 +34,7 @@
     ```
     You can also specify different input files and directories using the flags:
     ```bash
-    ./gopscan -servers servers.yaml -directory port
+    ./gopscan -servers servers.yaml -directory ports
     ```
 
 1.  **Check the output:**
