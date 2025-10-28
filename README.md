@@ -1,22 +1,24 @@
 ## About
 
-`gopscan` is a command-line utility to scan for open TCP ports on a list of servers and list of ports. The utility has been implemented in Go.
+`gopscan` is a command-line utility (CLI) to scan a list of servers for open TCP ports on using a special list of ports. The utility has been implemented in Go.
 
 ## Key Features
 
-* **Servers:** 
+A list of key features of the port scanner.
+
+* **Servers** 
     + Reads a list of target servers (hostnames or IP addresses) from a specified YAML file.
-* **Ports from multiple files:** 
+* **Ports from multiple files** 
     + Reads ports from multiple files within a specified directory. Each file should contain a comma-separated list of ports.
-* **Concurrent scanning:** 
-    - Should utilizes Go's concurrency features (goroutines) to scan multiple ports on multiple servers simultaneously, making the process efficient.
-* **Logging:** 
-    - Uses the `zap` package for structured logging of open ports to a dedicated file. Each log entry includes the hostname/IP address and the open port number.
-* **Reporting:** 
+* **Concurrent scanning** 
+    - Utilizes Go's concurrency features (goroutines) to scan multiple ports on multiple servers simultaneously, making the process efficient.
+* **Logging** 
+    - Uses `zap` package for structured logging of open ports to a dedicated file. Each log entry includes the hostname/IP address and the open port number.
+* **Reporting** 
     - Generates reports and sends them by email.
+    - Notifies user direct via a `stdout` about ongoing scanning process.
 
 ## Usage
-
 
 1.  **Prepare input files:**
     * Create a `servers.yaml` file (or the file specified by `-servers`). See example of the file below.
@@ -46,7 +48,11 @@
     * Create a `.env` file with email settings. See example of the file below.
 
 
-## Format Example: `servers.yaml` 
+## Config examples
+
+`servers.yaml` and `.env` files are required to use the scanned. 
+
+### Format Example: `servers.yaml`
 
 An example of `servers.yaml` file
 
@@ -63,11 +69,11 @@ servers:
       - 3306
 ```
 
-## Format Example: `.env` 
+### Format Example: `.env` 
 
 An example of `.env` file
 
-```text
+```
 EMAIL_SERVER = '<CHANGE-ME>'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
@@ -82,6 +88,10 @@ EMAIL_READONLY_MODE = True
 
 * Collection of ports as a files:
     - https://github.com/HeckerBirb/top-nmap-ports-csv
+
+## Development
+
+Consult `Taskfile.yml` for commands to be used for the development and deployment.
 
 ## License
 

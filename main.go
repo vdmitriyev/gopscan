@@ -22,7 +22,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var version string = "0.1.5"
+var version string = "0.1.6"
 var build string = "0.0.0" // do not remove or modify
 
 const appName = "gopscan"
