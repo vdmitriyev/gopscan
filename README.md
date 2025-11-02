@@ -1,6 +1,6 @@
 ## About
 
-`gopscan` is a command-line utility (CLI) to scan a list of servers for open TCP ports on using a special list of ports. The utility has been implemented in Go.
+`gopscan` - This command-line utility (CLI) scans a list of servers for open TCP ports. A specific port range used for scanning is defined in a file. The tool has been implemented in Go.
 
 ## Key Features
 
@@ -72,7 +72,6 @@ servers:
 ### Format Example: `.env` 
 
 An example of `.env` file
-
 ```
 EMAIL_SERVER = '<CHANGE-ME>'
 EMAIL_PORT = 587
