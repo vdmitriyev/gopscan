@@ -7,7 +7,7 @@ require (
 	github.com/ilyakaznacheev/cleanenv v1.5.0
 	github.com/joho/godotenv v1.5.1
 	github.com/wneessen/go-mail v0.7.2
-	go.uber.org/zap v1.27.0
+	go.uber.org/zap v1.27.1
 	gopkg.in/yaml.v3 v3.0.1
 )
 
